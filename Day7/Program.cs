@@ -19,7 +19,7 @@ for (var i = 0; i < rawData.Count; i++)
     
     if(command is "$ cd ..")
     {
-        MoveDirectoryUp();
+        currentDirectory = MoveDirectoryUp(currentDirectory);
     } 
     else if (command.StartsWith("$ cd"))
     {
@@ -32,16 +32,9 @@ for (var i = 0; i < rawData.Count; i++)
     }
 }
 
-var totalSize = 0;
-
-foreach (var dir in dirs)
-{
-    var viableUnder = IsDirViable(dir, 100000, 0);
-    if (viableUnder != null)
-    {
-        totalSize += (int)viableUnder;
-    }
-}
+var totalSize = dirs.Select(dir => IsDirViable(dir, 100000, 0))
+    .Where(viableUnder => viableUnder != null)
+    .Sum(viableUnder => (int)viableUnder!);
 
 Console.WriteLine($"Total size of directories smaller than 100000 is {totalSize}");
 
@@ -50,16 +43,11 @@ var availableSpace = 70000000 - homeDirSize;
 var spaceToFree = 30000000 - availableSpace;
 
 
-var potentialDirToRemoveSize = homeDirSize;
+var potentialDirToRemoveSize = dirs.Select(dir => CountDirSize(dir, 0))
+    .Where(size => size >= spaceToFree)
+    .Prepend(homeDirSize)
+    .Min();
 
-foreach (var dir in dirs)
-{
-    var size = CountDirSize(dir, 0);
-
-    if (size < spaceToFree) continue;
-
-    if (size < potentialDirToRemoveSize) potentialDirToRemoveSize = size;
-}
 Console.WriteLine($"Smallest directory size that deleting would free up enough space is {potentialDirToRemoveSize}");
 
 Console.ReadLine();
@@ -67,12 +55,7 @@ Console.ReadLine();
 
 int CountDirSize(Directory pDir, int previousSize)
 {
-    var currSize = previousSize;
-    
-    foreach (var file in pDir.Files)
-    {
-        currSize += int.Parse(file.Size);
-    }
+    var currSize = previousSize + pDir.Files.Sum(file => int.Parse(file.Size));
 
     foreach (var cDir in pDir.SDirectories)
     {
@@ -113,11 +96,11 @@ int? IsDirViable(Directory pDir, int maxSize, int previousSize)
     return currSize;
 }
 
-void MoveDirectoryUp()
+string MoveDirectoryUp(string dir)
 {
-    var currentDir = dirs.First(x => x.Name == currentDirectory);
+    var currentDir = dirs.First(x => x.Name == dir);
 
-    currentDirectory = currentDir.Parent;
+    return currentDir.Parent;
 }
 
 void AddDirectoryAndChangeToIt(string name)
